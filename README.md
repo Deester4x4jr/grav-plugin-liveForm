@@ -10,12 +10,12 @@ live_form_defaults: |-
     <div>Default Shell for the body of your form contents</div>
 live_form_snippets:
     form_field_name_1: # This is the field name as defined in the frontmatter of your corresponding form
-    	field_id: 'defaults_to_field_name' # [OPTIONAL] This is the ID of an element inject code into, if different than the field name 
+    	field_id: 'defaults_to_field_name' # [OPTIONAL] This is the ID of an element to inject code into, if different than the field name 
         code: |-
             <span><a id="id_of_element_to_mod">contents</a></span>
         subs:
             id_of_element_to_mod:
-                html: contents # This will replace the contents of the element with the specified id above (using jquery .html())
+                html: regex-or-string # This will replace the contents of the element with the specified id above (using jquery .html()). If omitted this will just be the form field value
                 attr: # list of attributes to modify (using jquery selectors)
                     href: regex-or-string
                     title: regex-or-string

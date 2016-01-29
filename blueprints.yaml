@@ -1,0 +1,15 @@
+name: Live Form
+version: 1.0.0
+description: "Allows you to turn a form into a live form, using the fields as a method of building an HMTL document from a template"
+icon: codepen
+author:
+  name: SquirrelFaktory
+  email: josh@desherlia.net
+  # url: 
+keywords: plugin, live, form, html, template
+homepage: https://github.com/Deester4x4jr/grav-plugin-liveform
+bugs: https://github.com/Deester4x4jr/grav-plugin-liveform/issues
+license: MIT
+
+# dependencies:
+#   - import
