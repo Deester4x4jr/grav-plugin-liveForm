@@ -1,0 +1,16 @@
+{% extends 'form.html.twig' %}
+
+{% block content %}
+
+    {{ dump(assets) }}
+    
+    {{ parent() }}
+    
+    {% for name,rules in page.header.imports.live %}
+        
+        <div id="live-{{ name }}">
+            {{ rules['shell'] }}
+        </div>
+    {% endfor %}
+
+{% endblock %}
