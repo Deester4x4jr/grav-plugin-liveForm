@@ -4,6 +4,7 @@ namespace Grav\Plugin;
 use \Grav\Common\Plugin;
 use \Grav\Common\Grav;
 use \Symfony\Component\Yaml\Yaml;
+use RocketTheme\Toolbox\Event\Event;
 
 class LiveFormPlugin extends Plugin
 {	
@@ -14,6 +15,7 @@ class LiveFormPlugin extends Plugin
     {
 	    return [
 	        'onThemeInitialized' => ['onThemeInitialized', 0],
+            'onGetPageTemplates' => ['onGetPageTemplates', 0],
 	    ];
 	}
 
@@ -37,7 +39,7 @@ class LiveFormPlugin extends Plugin
      */
     public function onTwigTemplatePaths()
     {
-        $this->grav['twig']->twig_paths[] = 'plugin://liveform/assets/templates';
+        $this->grav['twig']->twig_paths[] = 'plugins://liveform/templates';
     }
 
     /**
@@ -45,12 +47,13 @@ class LiveFormPlugin extends Plugin
      */
     public function onTwigSiteVariables()
     {
+
         if ( !(pathinfo($this->grav['page']->name(), PATHINFO_FILENAME) == 'liveform') ) {
             return;
         }
 
         # Scan the JS directory for this plugin, and build our collection of JS Files
-        $assetsDir = new \FilesystemIterator('plugin://liveform/assets/js');
+        $assetsDir = new \FilesystemIterator('plugins://liveform/js');
         $liveform_bits = [];
 
         foreach ($assetsDir as $asset) {
@@ -84,5 +87,15 @@ class LiveFormPlugin extends Plugin
 
         # add our inline JS object
         $assets->addInlineJs($inlineJS,110);
+    }
+
+    /**
+     * Add page template types.
+     */
+    public function onGetPageTemplates(Event $event)
+    {
+        /** @var Types $types */
+        $types = $event->types;
+        $types->scanTemplates('plugins://liveform/templates');
     }
 }

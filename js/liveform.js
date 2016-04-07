@@ -254,6 +254,7 @@ $(document).ready(function() {
 
                 $(this).on('change keyup blur', function (e) {
                     updateLiveForm($(this).attr('id'), e);
+                    console.log('you touched me');
                 });
             });
         }
