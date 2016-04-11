@@ -31,7 +31,7 @@ function doCleanup (obj) {
 function checkForEval(val) {
 
     if (!(typeof val == 'string')) {
-        console.log("[ERROR]: Variable of type "+typeof val+" found, but expected string or object.");
+        console.log("[ERROR]: Variable of type "+typeof val+" found, but expected string.");
         return;
     }
 
@@ -88,6 +88,12 @@ function makeChanges (src, dst, fid, frd) {
     if (fid in formRules[frd]){
 
         var theseRules = formRules[frd][fid];
+
+        if(typeof theseRules == 'string') {
+            dst.html(theseRules);
+            return;
+        };
+
         var toClean = [];
         var newVal,state;
         
@@ -115,6 +121,7 @@ function makeChanges (src, dst, fid, frd) {
                         newVal = rule;
                     }
                 });
+                return;
 
                 doCleanup(toClean);
 
@@ -232,7 +239,7 @@ function updateLiveForm (fieldID, evt) {
         return;
 
     } else if ((fired == "change") || ((fired == "keyup") && (( ['radio','checkbox'] ).indexOf( source.attr('type') ) === -1 ))) {
-        
+
         // Proceed to the makeChanges function if we get a 'change' event for any field type, or a 'keyup' event for any text input field type
         makeChanges(source, dest, fieldID);
     }
@@ -254,7 +261,7 @@ $(document).ready(function() {
 
                 $(this).on('change keyup blur', function (e) {
                     updateLiveForm($(this).attr('id'), e);
-                    console.log('you touched me');
+                    // console.log('you touched me');
                 });
             });
         }
