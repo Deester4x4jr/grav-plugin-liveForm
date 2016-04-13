@@ -44,20 +44,32 @@ live_form_snippets:
     1. If the rule is a string:
         1. The _destination_ field's html will become the string
     1. If the rule is an object:
-        1. Any [valid jQuery method](http://api.jquery.com/) can be used as a _key: value_ pair, as long as the method is prepended by an **_underscore_**.  Some examples:
-            - The _destination_ field's html will become the _\_html_ key's value, using [jQuery.html()](http://api.jquery.com/html/)
-            - The _destination_ field can have a class applied using the _\_addClass_ key, which uses the [jQuery.addClass()](http://api.jquery.com/addclass/) method
-        1. Any jQuery method that accepts multiple parameters can be used as well, with _key: value_ pairs beneath it.  Some examples:
-            - attr: uses [jQuery.attr()](http://api.jquery.com/attr/)
-            - css: uses [jQuery.css()](http://api.jquery.com/css/)
-        1. The following **special methods** may be used as well:
-            1. _\_\_subs_:
+        1. Any [valid jQuery method](http://api.jquery.com/) can be used as a _key: value_ pair, as long as the method is prepended by **fn.**.  Some examples:
+            - The _destination_ field's html will become the _fn.html_ key's value, using [jQuery.html()](http://api.jquery.com/html/)
+                - (It is worth noting that we will look for and process fn.html first)
+            - The _destination_ field can have a class applied using the _fn.addClass_ key, which uses the [jQuery.addClass()](http://api.jquery.com/addclass/) method
+        1. Any valid jQuery method that accepts multiple parameters can be used as well, with _key: value_ pairs beneath it.  Some examples:
+            - _fn.attr_: uses [jQuery.attr()](http://api.jquery.com/attr/)
+                ```
+                fn.attr:
+                    href: "'tel:+'+$('#desk_phone').attr('data-dial-code')+$('#desk_phone').cleanVal()"
+                    alt: some stuff
+                    title: "$('#desk_phone').cleanVal()"
+                ```
+            - _fn.css_: uses [jQuery.css()](http://api.jquery.com/css/)
+                ```
+                fn.css:
+                    color: red
+                    padding: 0 0 0 100px
+                ```
+        1. The following **special methods** may be used as well, and will be processed in this order:
+            1. _this.action_:
+                1. Use this method if you would like to add raw jQuery or Javascript to be run when interacting with a particular field
+                1. The _this.action_ method may be used under any field _key_ to be acted upon as well
+            1. _this.subs_:
                 1. Will be parsed to determine if any substitutions need to be made on the new html in the _destination_ field
                 1. Each substitution should have the field ID to be acted upon as a _key_ with _key: value_ pairs beneath it, following the same rules as the _destination_ field (jQuery methods with leading underscore, etc...)
                 1. There is no limit to the depth of fields with substitutions that can be chained... Just make sure you can manage your own code
-            1. _\_\_action_:
-                1. Use this method if you would like to add raw jQuery or Javascript to be run when interacting with a particular field
-                1. the _\_\_action_ method be be used under any field _key_ to be acted upon as well
         1. Any additional field to be acted upon may be specified as a _key: value_ pair as well
             1. The _key_ must be the field ID
             1. The value may be a set of _key: value_ pairs, following the same rules as the _destination_ field (jQuery methods with leading underscore, etc...)
@@ -66,9 +78,6 @@ live_form_snippets:
             1. The field is a _Radio_:
             1. The field is a _Checkbox_:
             1. The field is a _Text Input_:
-                1. If the 
-                1. The _destination_ value will become the value of the _\_val_ key
-                1. 
 
 #### Rules to Follow:
 **form field name:**

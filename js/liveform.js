@@ -1,8 +1,45 @@
 /*
+* This will get all unique keys from a nested array
+*/
+function theDigger (obj) {
+    
+    var theFields = [];
+
+    if (typeof obj == 'object') {
+        
+        $.each(obj, function (k,v) {
+
+            if (k.indexOf('fn.') === -1) {
+                
+                if (k.indexOf('this.') === -1) {
+                    
+                    theFields.push(k);
+                }
+
+                if ( (k == 'this.subs') || (typeof v == 'object') ) {
+
+                    theFields = theFields.concat(theDigger(v));
+                }
+            }
+
+        });
+
+    } else {
+        
+        console.log("[ERROR]: Variable of type "+typeof obj+" was sent, but expected jQuery or object.");
+        return;
+
+    }
+    theFields = theFields.reduce(function(a,b){if(a.indexOf(b)<0)a.push(b);return a;},[]);
+    return theFields;
+}
+
+
+/*
 *  This is the cleanup function, to clear fields as necessary, and is called periodically in stage 1 and 2
 *  obj expects a jQuery object, or an array of fieldIDs to clear
 */
-function doCleanup (obj) {
+function theCleaner (obj) {
 
     if (typeof obj == 'object') {
         if (obj instanceof jQuery) {
@@ -13,7 +50,6 @@ function doCleanup (obj) {
                     v.html('');
                 } else {
                     $('#'+v).html('');
-                    // console.log('cleaned '+v);
                 }
             });
         }
@@ -25,7 +61,7 @@ function doCleanup (obj) {
 
 /*
 *  Function to check a string to see if we need to eval() it
-*  @paran {string} val
+*  @param {string} val
 *  @return {string}
 */
 function checkForEval(val) {
@@ -45,37 +81,127 @@ function checkForEval(val) {
 /*
 *  Function to evaluate all of the actions and publish the results
 */
-function actionLoop (actions) {
+function actionLoop ( actions, dest ) {
 
-    $.each(actions, function (dest,rules) {
+    if (typeof dest === 'undefined') {
+        console.log("[ERROR]: 'dest' variable not defined but required.");
+        return;
+    }
 
-        $.each(rules, function (type,action) {
+    var thePreview = dest.closest('div[data-live-form]');
+    var theForm = $('form#'+thePreview.attr('data-form-name'));
 
-            if (type == '_action') {
-                eval(action);
-                return;
-            }
+    // If we find fn.html we need to run that first
+    if ('html' in actions) {
+        dest.html(checkForEval(actions['html']));
+        delete actions['html'];
+    }
 
-            var args = action;
+    if (Array.isArray(actions)) {
+        
+        $.each(actions, function(k,v) {
+            eval(v);
+        });
+    } else {
 
-            if (typeof action == 'object') {
-                args = {};
-                $.each(action, function (key,val) {
+        $.each(actions, function (k,v) {
+
+            var args = {};
+
+            if (typeof v == 'string') {
+                args = checkForEval(v);
+            } else {
+                $.each(v, function (key,val) {
                     args[key] = checkForEval(val);
                 });
-            } else {
-                args = checkForEval(action);
             }
 
-            $('#'+dest)[type](args);
+            dest[k](args);
         });
-    });
+    }
+
+    if ($('#live-form-preview').hasClass('closed')) {
+        $('#live-preview-title').addClass('updates');
+    }
 }
 
 /*
-*  This is the second stage in updating the liveform.  This can probably be made to be more fundamental
+*  This should sort through rules in prep for actions
+*  rules: Should be a valid ruleset as scoped in stage 2
+*  dest: Expects a jQuery object
 */
-function makeChanges (src, dst, fid, frd) {
+function theSorter ( rules, dest ) {
+
+    if (!(dest instanceof jQuery)) {
+        console.log("[ERROR]: Expected var dest to be of type jQuery Object, but instead found "+typeof dest+".");
+        return;
+    }
+
+    var jquerys = {}, subs = {}, fields = {}, action = [];
+
+    $.each(rules, function (k,v) {
+        
+        if (k.indexOf('fn.') > -1) {
+
+            jquerys[k.replace('fn.','')] = v;
+        } else if (k == 'this.subs') {
+            
+            $.each(v, function (field, stuff) {
+                subs[field] = stuff;
+            });
+        } else if (k == 'this.action') {
+            
+            if (typeof v == 'object') {
+                
+                $.each(v, function (key, func) {
+                    action.push(func);
+                });
+            } else {
+                
+                action.push(v);
+            }
+        } else {
+
+            if (typeof v == 'object') {
+                
+                fields[k] = v;
+            } else {
+                
+                fields[k] = {'fn.html': checkForEval(v)};
+            }
+        }
+    });
+
+    // Loop through all of the jQuery methods/functions
+    if (Object.keys(jquerys).length > 0) {
+        actionLoop(jquerys,dest);
+    }
+
+    // Run any actions present on this field
+    if (!(typeof action === 'undefined')) {
+        actionLoop(action,dest);
+    }
+
+    // Make any subs from the sub rules on this field
+    if (Object.keys(subs).length > 0) {
+        $.each(subs, function (k,v) {
+            theSorter(v,dest.find('#'+k));
+        });
+    }
+
+    // Run any rules for fields referenced by this field
+    if (Object.keys(fields).length > 0) {
+        $.each(fields, function (k,v) {
+            theSorter(v,$('#'+k));
+        });
+    }
+}
+
+/*
+*  This is the second stage in updating the liveform.
+*  This can probably be made to be more fundamental
+*/
+function stageTwo (src, dst, fid, frd) {
 
     if (typeof fid === 'undefined') {
         fid = src.attr('id');
@@ -99,119 +225,86 @@ function makeChanges (src, dst, fid, frd) {
         
         switch (src.attr('type')) {
             case 'radio':
-                // Set the state of the checkbox to a variable for retrieving our rules
-                state = src.attr('id');
+
+                // Set the selected radio button's ID to the state variable
+                group = src.attr('name');
+                state = (src.attr('id')).replace(group+'-','');
+
+                theSorter( theseRules[state], dst );
 
                 // Build our array of fields to clear
-                $.each(theseRules, function (option,rule) {
-                    if (typeof rule == 'string') {
-                        if (toClean.indexOf(dst.attr('id')) == -1) {
-                            toClean.push(dst.attr('id'));
-                        }
-                    } else if (typeof rule == 'object') {
-                        $.each(rule, function (k,v) {
-                            toClean.push(k);
-                        });
-                    } else {
-                        console.log("[ERROR]: Variable of type "+typeof state+" found in "+src.prop('checked')+", but expected string or object.");
-                        return;
-                    }
+                // $.each(theseRules, function (option,rule) {
+                //     if (typeof rule == 'string') {
+                //         if (toClean.indexOf(dst.attr('id')) == -1) {
+                //             toClean.push(dst.attr('id'));
+                //         }
+                //     } else if (typeof rule == 'object') {
+                //         $.each(rule, function (k,v) {
+                //             toClean.push(k);
+                //         });
+                //     } else {
+                //         console.log("[ERROR]: Variable of type "+typeof state+" found in "+src.prop('checked')+", but expected string or object.");
+                //         return;
+                //     }
 
-                    if (fid+'-'+option == state) {
-                        newVal = rule;
-                    }
-                });
-                return;
+                //     if (fid+'-'+option == state) {
+                //         newVal = rule;
+                //     }
+                // });
+                // return;
 
-                doCleanup(toClean);
+                // theCleaner(toClean);
 
-                if (typeof newVal == 'string') {
-                    dst.html(newVal);
-                } else {
-                    $.each(newVal, function (k,v) {
-                        $('#'+k).html(v);
-                    });
-                }
+                // if (typeof newVal == 'string') {
+                //     dst.html(newVal);
+                // } else {
+                //     $.each(newVal, function (k,v) {
+                //         $('#'+k).html(v);
+                //     });
+                // }
                 break;
 
             case 'checkbox':
-                // Set the state of the checkbox to a variable for retrieving our rules
+
+                // Put the state of the checkbox into a variable for retrieving our rules
                 state = (src.prop('checked')) ? 'checked' : 'unchecked';
 
-                // Build our array of fields to clear
-                $.each(theseRules, function (option,rule) {
-                    
-                    if (typeof rule == 'string') {
-                        toClean[dst.attr('id')] = rule;
-                    } else if (typeof rule == 'object') {
-                        $.each(rule, function (k,v) {
-                            toClean[k] = v;
-                        });
-                    } else {
-                        console.log("[ERROR]: Variable of type "+typeof state+" found in "+src.prop('checked')+", but expected string or object.");
-                        return;
-                    }
+                theCleaner(theDigger(theseRules));
+                theSorter(theseRules[state], dst);
 
-                    if (option == state) {
-                        newVal = rule;
-                    }
-                });
-
-                doCleanup(Object.keys(toClean));
-
-                if (typeof newVal == 'string') {
-                    dst.html(newVal);
-                } else {
-                    $.each(newVal, function (k,v) {
-                        $('#'+k).html(v);
-                    });
-                }
                 break;
 
             default:
 
-                var actions;
-                
-                if ("_val" in theseRules) {
+                if (src.is('select')) {
                     
-                    actions = {};
-
-                    if (typeof theseRules["_val"] == 'string') {
-                        actions[dst.attr('id')] = {'html': theseRules["_val"]};
-                    } else {
-                        $.each(theseRules["_val"], function (field,content) {
-                            actions[field] = {'html': content};
-                        });
-                    }
-
-                    // We have to fully run this first, because if not our elements might not exist for the subs below
-                    actionLoop(actions);
-                }
-
-                if ("_subs" in theseRules) {
-
-                    actions = {};
-
-                    $.each(theseRules["_subs"], function (id,rules) {
-                        
-                        actions[id] = rules;
-
+                    $.each(src.find('option:selected'), function (k,v) {
+                        theCleaner(theDigger(theseRules[v.value]));
                     });
 
-                    actionLoop(actions);
+                    $.each(src.find('option:selected'), function (k,v) {
+                        theSorter(theseRules[v.value], dst);
+                    });
+
+                    return;
                 }
+
+                theSorter( theseRules, dst );
 
                 break;
         }
+
     } else {
+
         dst.html(src.val());
     }
 }
 
 /*
-*  This is the first stage in updating the liveform.  This can probably be made to be more fundamental
+*  This is the first stage in updating the liveform.
+*  This can probably be made to be more fundamental
 */
-function updateLiveForm (fieldID, evt) {
+function stageOne (fieldID, evt) {
     
     // Get our event type
     fired = evt.type;
@@ -232,16 +325,30 @@ function updateLiveForm (fieldID, evt) {
     var fieldID = (source.attr('type') == 'radio') ? source.attr('name') : fieldID;
     var dest = $('#live-'+source.closest('form').attr('id')+' #live_'+fieldID);
 
-    if ((!source.val()) && (fired == 'blur') && (( ['radio','checkbox'] ).indexOf( source.attr('type') ) === -1)) {
+    if ((!source.val()) && (fired == 'blur') && (( ['radio','checkbox'] ).indexOf( source.attr('type') ) === -1) && (!(source.is('select')))) {
         
-        // Clear the field if the event is a 'blur' event and the field is a type of text input field
-        doCleanup(dest);
+        // Clear the destination field if the event is a 'blur' event and the field is a type of text input field
+        theCleaner(dest);
         return;
 
-    } else if ((fired == "change") || ((fired == "keyup") && (( ['radio','checkbox'] ).indexOf( source.attr('type') ) === -1 ))) {
+    }
 
-        // Proceed to the makeChanges function if we get a 'change' event for any field type, or a 'keyup' event for any text input field type
-        makeChanges(source, dest, fieldID);
+    if ( (fired == "blur") && (source.is('select')) ) {
+        
+        // Proceed to the stageTwo function if we get a 'blur' event on a select field type
+        stageTwo(source, dest, fieldID);
+        return;
+    }
+
+    if ((!(source.is('select'))) && ((fired == "change") || ((fired == "keyup") && (( ['radio','checkbox'] ).indexOf( source.attr('type') ) === -1 )))) {
+
+        if ( source.attr('type') == 'radio' ) {
+            dest = $('#live-'+source.closest('form').attr('id')+' #live_'+source.attr('id').replace('-','_'));
+        }
+
+        // Proceed to the stageTwo function if we get a 'change' event for any field type, or a 'keyup' event for any text input field type
+        stageTwo(source, dest, fieldID);
+        return;
     }
 }
 
@@ -260,10 +367,28 @@ $(document).ready(function() {
             textFields.each(function () {
 
                 $(this).on('change keyup blur', function (e) {
-                    updateLiveForm($(this).attr('id'), e);
-                    // console.log('you touched me');
+                    stageOne($(this).attr('id'), e);
                 });
             });
         }
+    });
+
+    $('#live-form-preview h3').click( function() {
+
+        var preview = ($('#live-form-preview .wrapper').height() > 0) ? 0 : 1000;
+        $('#live-form-preview .wrapper').slideToggle(300, function() {
+            $('#live-form-preview').toggleClass('closed');
+        });
+
+        // $('#live-form-preview .wrapper').animate({
+        //     'max-height': preview
+        // },{
+        //     duration: 150,
+        //     complete: function() {
+        //         // $('#live-form-preview').toggleClass('closed');
+        //     }
+        // });
+
+        $('#live-preview-title').removeClass('updates');
     });
 });

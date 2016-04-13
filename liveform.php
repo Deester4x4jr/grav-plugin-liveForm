@@ -43,7 +43,7 @@ class LiveFormPlugin extends Plugin
     }
 
     /**
-     * Load our custom JS file on Page Init.
+     * Load our custom JS & CSS files on Page Init.
      */
     public function onTwigSiteVariables()
     {
@@ -52,41 +52,50 @@ class LiveFormPlugin extends Plugin
             return;
         }
 
-        # Scan the JS directory for this plugin, and build our collection of JS Files
-        $assetsDir = new \FilesystemIterator('plugins://liveform/js');
-        $liveform_bits = [];
-
-        foreach ($assetsDir as $asset) {
-            if ($asset->isFile()) {
-                $liveform_bits[] = $asset->getPathname();
-            }
-        }
-
-        # Build our custom inline JS string from the imported live.yaml file
-        $rules = $this->grav['page']->header()->imports['live'];
-        $inlineJS = 'var formRules = {';
-        
-        foreach ($rules as $formname => $ruleset) {
-            
-            $ruleset = $ruleset['actions'];
-            $inlineJS .= '"' . $formname . '": ' . json_encode($ruleset);
-            
-            if (!($formname === end($rules))) {
-                $inlineJS .= ",";
-            }
-        }
-
-        $inlineJS .= "};";
-
         # Get the Assets object
         $assets = $this->grav['assets'];
 
-        # Define and add our JS Collection
+        # Initialize our bits variable
+        $liveform_bits = [];
+
+        foreach ( ['css','js'] as $k => $v) {
+
+            # Scan the parent directories for this plugin, and build our collection of JS Files
+            $assetsDir = new \FilesystemIterator('plugins://liveform/'.$v);
+
+            foreach ($assetsDir as $asset) {
+                if ($asset->isFile()) {
+                    $liveform_bits[] = $asset->getPathname();
+                }
+            }
+
+            if ($v == 'js') {
+
+                # Build our custom inline JS string from the imported live.yaml file
+                # Dependent on the imports plugin
+                $rules = $this->grav['page']->header()->imports['live'];
+                $inlineJS = 'var formRules = {';
+                
+                foreach ($rules as $formname => $ruleset) {
+                    
+                    $ruleset = $ruleset['actions'];
+                    $inlineJS .= '"' . $formname . '": ' . json_encode($ruleset);
+                    
+                    if (!($formname === end($rules))) {
+                        $inlineJS .= ",";
+                    }
+                }
+
+                $inlineJS .= "};";
+
+                # add our inline JS object
+                $assets->addInlineJs($inlineJS,110);
+            }
+        }
+
+        # Define and Add our Collection
         $assets->registerCollection('liveform', $liveform_bits);
         $assets->add('liveform', 100);
-
-        # add our inline JS object
-        $assets->addInlineJs($inlineJS,110);
     }
 
     /**

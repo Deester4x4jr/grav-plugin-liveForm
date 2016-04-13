@@ -1,14 +1,96 @@
-{% extends 'form.html.twig' %}
+{% extends 'partials/base.html.twig' %}
+{% block javascripts %}
 
-{% block content %}
-    
+    {# Need to move these to the plugin folder and make them load in php #}
+    {% do assets.add('theme://js/plugins/jquery/mask/jquery.mask.js', 98) %}
+    {% do assets.add('theme://js/plugins/jquery/mask/maskTheNumbers.js', 97) %}
+    {% do assets.add('theme://js/limitOf3.js', 96) %}
     {{ parent() }}
-    
-    {% for name,rules in page.header.imports.live %}
+
+{% endblock %}
+
+{% block sidebar %}
+{% endblock %}
+
+{% block body %}
+
+    {% block content %}
         
-        <div id="live-{{ name }}">
-            {{ rules['shell'] }}
-        </div>
-    {% endfor %}
+        {# Display a form message if present #}
+        {% if form.message %}
+            <div class="alert">
+                {{ form.message }}
+            </div>
+        {% endif %}
+        
+        {# Set some vars for processing #}
+        {% set multipart = '' %}
+        {% set method = form.method|upper|default('POST') %}
+        {% for field in form.fields %}
+            {% if (method == 'POST' and field.type == 'file') %}
+                {% set multipart = ' enctype="multipart/form-data"' %}
+            {% endif %}
+        {% endfor %}
+
+        <div class="centered"><h1>Tegile Systems<br>{{ page.title }}</h1></div>
+        
+        {# Place the form object (pure-form-aligned) #}
+        {% set formStyle = (form.style) ? ' pure-form-' ~ form.style : '' %}
+        <form class="pure-form{{ formStyle }} live-form-body"
+              name="{{ form.name }}"
+              id="{{ form.name }}"
+              action="{{ form.action ? base_url ~ form.action : page.url }}"
+              method="{{ method }}"{{ multipart }}>
+            
+            {# Insert a FieldSet (Maybe make this more verbose, accounting for spacers) #}
+            <fieldset>
+
+                {# Loop through each field and use the right template #}
+                {% for field in form.fields %}
+                    {% set value = form.value(field.name) %}
+                    <div class="pure-control-group">
+                        {% include "forms/fields/#{field.type}/#{field.type}.html.twig" %}
+                    </div>
+                    {# If there is a 'help' parameter, add a tooltip #}
+                    {% if field.help %}
+                        {{ ('>>>' ~ field.help|e|t)|markdown }}
+                    {% endif %}
+                {% endfor %}
+            </fieldset>
+            
+            {# Place the submit and reset buttons #}
+            <div class="buttons">
+                {% for button in form.buttons %}
+                    <button class="button {{ button.classes|default('button') }} pure-button pure-button-primary"
+                            type="{{ button.type|default('submit') }}"
+                            data-modal-target="{{ button.target }}">
+                        {{ button.value|t|default('Submit') }}
+                    </button>
+                {% endfor %}
+            </div>
+
+            {{ nonce_field('form', 'form-nonce') }}
+        </form>
+
+        {{ page.content }}
+        
+        {# live form preview section #}
+        <section id="live-form-preview" class="closed">
+            <div class="centered">
+                <h3 id="live-preview-title">Click for Live Preview</h3>
+            </div>
+            {% for name,rules in page.header.imports.live %}
+                {# <div class="centered">
+                    <h4>Click for Live Preview</h3>
+                </div> #}
+                <div class="wrapper">
+                    <div id="live-{{ name }}" class="inner" data-live-form data-form-name="{{ name }}">
+                        {{ rules['shell'] }}
+                    </div>
+                </div>
+            {% endfor %}
+        </section>
+
+    {% endblock %}
 
 {% endblock %}
